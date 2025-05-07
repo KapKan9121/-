@@ -1,0 +1,153 @@
+
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <title>Менеджер товарів</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; background: #f9f9f9; }
+    input, button { padding: 8px; margin: 5px 0; width: 100%; box-sizing: border-box; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #fff; }
+    th, td { border: 1px solid #ccc; padding: 10px; text-align: center; }
+    img { max-width: 100px; max-height: 100px; }
+    .btn { background-color: #4CAF50; color: white; border: none; cursor: pointer; }
+    .btn:hover { background-color: #45a049; }
+    .btn-delete { background-color: #f44336; }
+    .btn-delete:hover { background-color: #da190b; }
+    .btn-secondary { background-color: #2196F3; }
+    .btn-secondary:hover { background-color: #0b7dda; }
+  </style>
+</head>
+<body>
+
+  <h2>Додати товар</h2>
+
+  <label>Артикул:</label>
+  <input type="text" id="sku">
+
+  <label>Посилання на товар:</label>
+  <input type="text" id="productLink">
+
+  <label>Посилання на товар у постачальника (зображення):</label>
+  <input type="text" id="supplierImage">
+
+  <button class="btn" onclick="addProduct()">Додати товар</button>
+  <button class="btn-secondary" onclick="exportData()">Експортувати в JSON</button>
+  <input type="file" id="importFile" accept=".json" onchange="importData()" style="margin-top: 10px;">
+
+  <table id="productTable">
+    <thead>
+      <tr>
+        <th>Артикул</th>
+        <th>Посилання на товар</th>
+        <th>Посилання на постачальника</th>
+        <th>Зображення</th>
+        <th>Дія</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    let products = [];
+
+    function normalizeLink(url) {
+      if (url.startsWith("tg:resolve?domain=")) {
+        const domainPart = url.split("domain=")[1].split("&")[0];
+        return "https://t.me/" + domainPart;
+      }
+      return url;
+    }
+
+    function saveToLocalStorage() {
+      localStorage.setItem('products', JSON.stringify(products));
+    }
+
+    function loadFromLocalStorage() {
+      const data = localStorage.getItem('products');
+      if (data) {
+        products = JSON.parse(data);
+        renderTable();
+      }
+    }
+
+    function renderTable() {
+      const tableBody = document.querySelector('#productTable tbody');
+      tableBody.innerHTML = '';
+
+      products.forEach((product, index) => {
+        const row = tableBody.insertRow();
+
+        row.insertCell(0).textContent = product.sku;
+        row.insertCell(1).innerHTML = `<a href="${normalizeLink(product.productLink)}" target="_blank">${product.productLink}</a>`;
+        row.insertCell(2).innerHTML = `<a href="${normalizeLink(product.supplierImage)}" target="_blank">${product.supplierImage}</a>`;
+        row.insertCell(3).innerHTML = `<img src="${product.supplierImage}" alt="Зображення" onerror="this.style.display='none'">`;
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = 'Видалити';
+        deleteBtn.className = 'btn btn-delete';
+        deleteBtn.onclick = () => {
+          products.splice(index, 1);
+          saveToLocalStorage();
+          renderTable();
+        };
+        row.insertCell(4).appendChild(deleteBtn);
+      });
+    }
+
+    function addProduct() {
+      const sku = document.getElementById('sku').value.trim();
+      const productLink = document.getElementById('productLink').value.trim();
+      const supplierImage = document.getElementById('supplierImage').value.trim();
+
+      if (!sku || !productLink || !supplierImage) {
+        alert("Будь ласка, заповніть всі поля!");
+        return;
+      }
+
+      products.push({ sku, productLink, supplierImage });
+      saveToLocalStorage();
+      renderTable();
+
+      document.getElementById('sku').value = '';
+      document.getElementById('productLink').value = '';
+      document.getElementById('supplierImage').value = '';
+    }
+
+    function exportData() {
+      const dataStr = JSON.stringify(products, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'products.json';
+      a.click();
+
+      URL.revokeObjectURL(url);
+    }
+
+    function importData() {
+      const fileInput = document.getElementById('importFile');
+      const file = fileInput.files[0];
+
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          try {
+            products = JSON.parse(e.target.result);
+            saveToLocalStorage();
+            renderTable();
+          } catch (err) {
+            alert("Помилка при читанні файлу!");
+          }
+        };
+        reader.readAsText(file);
+      }
+    }
+
+    loadFromLocalStorage();
+  </script>
+
+</body>
+</html>
